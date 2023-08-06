@@ -281,6 +281,8 @@ func (o *Output) setScenario(scenario string, args []string) error {
 		o.runCommand("chromium --ozone-platform-hint=auto --app=" + u.String())
 	} else if scenario == "blank" {
 		// We killed all windows before, nothing to execute.
+	} else {
+		return fmt.Errorf("scenario %v unimplemented", scenario)
 	}
 	return nil
 }
