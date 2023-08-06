@@ -251,7 +251,10 @@ func (o *Output) SetState(newState *outputs.State) (*outputs.State, error) {
 
 // SetScenario implements Output.
 func (o *Output) setScenario(scenario string, args []string) error {
-	fmt.Printf("SetScenario(%v, %v)\n", scenario, args)
+	log.WithFields(log.Fields{
+		"scenario": scenario,
+		"args":     args,
+	}).Debug("SetScenario", scenario, args)
 
 	// focus the workspace
 	if err := o.focusWorkspace(); err != nil {
