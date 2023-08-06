@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -135,6 +136,30 @@ func handleSetCmd(payload []byte, output outputs.Output) error {
 	var setState *outputs.State
 	if err := json.Unmarshal(payload, &setState); err != nil {
 		return fmt.Errorf("failed to parse set payload: %w", err)
+	}
+
+	// Dedup settings that are already set the way they should be.
+	currentState := output.GetState()
+
+	if setState.Enabled != nil && *setState.Enabled == *currentState.Enabled {
+		setState.Enabled = nil
+	}
+	if setState.Mode != nil && *setState.Mode == *currentState.Mode {
+		setState.Mode = nil
+	}
+	if setState.Power != nil && *setState.Power == *currentState.Power {
+		setState.Power = nil
+	}
+	if setState.Scale != nil && *setState.Scale == *currentState.Scale {
+		setState.Scale = nil
+	}
+	if setState.Transform != nil && *setState.Transform == *currentState.Transform {
+		setState.Scale = nil
+	}
+	if setState.Scenario != nil {
+		if setState.Scenario.Name == currentState.Scenario.Name && reflect.DeepEqual(setState.Scenario.Args, currentState.Scenario.Args) {
+			setState.Scenario = nil
+		}
 	}
 
 	output.SetState(setState)

@@ -120,7 +120,7 @@ func (s *Sway) refreshOutputs() error {
 			oldOutput.Scale = newOutput.Scale
 			oldOutput.Serial = newOutput.Serial
 			oldOutput.Transform = newOutput.Transform
-			// keep Scenario
+			// keep Scenario, this can't be modified from sway
 
 			// TODO: only notify if it's a new output
 			l.Debug("calling update fns")
@@ -207,6 +207,15 @@ func (o *Output) SetState(newState *outputs.State) (*outputs.State, error) {
 	o.sway.outputsMu.Lock()
 	defer o.sway.outputsMu.Unlock()
 
+	log.WithFields(log.Fields{
+		"newState.Enabled":   fmt.Sprintf("%v", newState.Enabled),
+		"newState.Mode":      fmt.Sprintf("%v", newState.Mode),
+		"newState.Power":     fmt.Sprintf("%v", newState.Power),
+		"newState.Scale":     fmt.Sprintf("%v", newState.Scale),
+		"newState.Transform": fmt.Sprintf("%v", newState.Transform),
+		"newState.Scenario":  *newState.Scenario,
+	}).Debug("SetState()")
+
 	if newState.Enabled != nil {
 		arg := ""
 		if *newState.Enabled {
@@ -254,11 +263,11 @@ func (o *Output) SetState(newState *outputs.State) (*outputs.State, error) {
 }
 
 // SetScenario implements Output.
-func (o *Output) setScenario(scenario string, args []string) error {
+func (o *Output) setScenario(name string, args []string) error {
 	log.WithFields(log.Fields{
-		"scenario": scenario,
+		"scenario": name,
 		"args":     args,
-	}).Debug("SetScenario", scenario, args)
+	}).Debug("SetScenario", name, args)
 
 	// focus the workspace
 	if err := o.focusWorkspace(); err != nil {
@@ -270,7 +279,7 @@ func (o *Output) setScenario(scenario string, args []string) error {
 		return fmt.Errorf("unable to empty workspace: %w", err)
 	}
 
-	if scenario == "url" {
+	if name == "url" {
 		if len(args) != 1 {
 			return fmt.Errorf("need to specify exactly 1 arg")
 		}
@@ -283,9 +292,9 @@ func (o *Output) setScenario(scenario string, args []string) error {
 		}
 
 		o.runCommand("chromium --ozone-platform-hint=auto --app=" + u.String())
-	} else if scenario == "blank" {
+	} else if name == "blank" {
 		// We killed all windows before, nothing to execute.
-	} else if scenario == "video" {
+	} else if name == "video" {
 		if len(args) != 1 {
 			return fmt.Errorf("need to specify exactly 1 arg")
 		}
@@ -299,7 +308,14 @@ func (o *Output) setScenario(scenario string, args []string) error {
 
 		o.runCommand("mpv --loop " + u.String())
 	} else {
-		return fmt.Errorf("scenario %v unimplemented", scenario)
+		return fmt.Errorf("scenario %v unimplemented", name)
 	}
+
+	// update the internal state
+	o.Scenario = &outputs.Scenario{
+		Name: name,
+		Args: args,
+	}
+
 	return nil
 }
