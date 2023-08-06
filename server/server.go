@@ -97,7 +97,6 @@ func (s *Server) Run(ctx context.Context, mqttServerURL string) error {
 		mqtt.Publish(s.mqttClient, s.getTopicPrefixForOutputName(outputName)+"/info", 0, false, []byte("{}"))
 	})
 
-	<-ctx.Done()
 	log.Info("server.Run() finished")
 
 	return nil
