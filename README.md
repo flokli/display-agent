@@ -9,22 +9,23 @@ For each connected output, the server (periodically) publishes to the following
 topics:
 
  - `$topicPrefix/$outputName@$machineID/state`
+    contains the current configuration (display layout, currently active
+    scenario).
  - `$topicPrefix/$outputName@$machineID/info`
+    Info contains more general information about the connected display (make,
+    model, serial, supported modes).
 
-State contains the current configuration (display layout, running scenario).
-Info contains more general information about the connected display (Make, Model,
-Serial, Supported Modes).
 
-Check outputs/type.go for an exhaustive list of the fields. They're published
-JSON-encoding.
+Check `outputs/type.go` for an exhaustive list of the fields.
+
+They're published JSON-encoded.
 
 The server listens on the following topics:
 
  - `$topicPrefix/$outputName@$machineID/set`
 
-If a message is published to that topic that contains a subset of the fields
-from `State`, these settings are applied (and the published state is updated
-subsequently).
+If a message is published to that topic, it is parsed as a (sparse) `state`,
+containing all fields that should be updated in the current state.
 
 ## Backends
 
