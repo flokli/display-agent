@@ -268,7 +268,7 @@ func (o *Output) setScenario(scenario string, args []string) error {
 
 	if scenario == "url" {
 		if len(args) != 1 {
-			return fmt.Errorf("no args specified")
+			return fmt.Errorf("need to specify exactly 1 arg")
 		}
 		urlStr := args[0]
 
@@ -281,6 +281,19 @@ func (o *Output) setScenario(scenario string, args []string) error {
 		o.runCommand("chromium --ozone-platform-hint=auto --app=" + u.String())
 	} else if scenario == "blank" {
 		// We killed all windows before, nothing to execute.
+	} else if scenario == "video" {
+		if len(args) != 1 {
+			return fmt.Errorf("need to specify exactly 1 arg")
+		}
+		urlStr := args[0]
+
+		// try to parse the URL
+		u, err := url.Parse(urlStr)
+		if err != nil {
+			return fmt.Errorf("unable to parse URL")
+		}
+
+		o.runCommand("mpv " + u.String())
 	} else {
 		return fmt.Errorf("scenario %v unimplemented", scenario)
 	}
