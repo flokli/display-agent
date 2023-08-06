@@ -133,6 +133,10 @@ func (s *Sway) refreshOutputs() error {
 			// add the pointer back to here, so the implementation can use it to acquire
 			// a lock.
 			newOutput.sway = s
+			newOutput.Scenario = &outputs.Scenario{
+				Name: "blank",
+				Args: []string{},
+			}
 			s.outputs[outputName] = newOutput
 
 			l.Debug("calling add fns")
