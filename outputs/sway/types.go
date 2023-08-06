@@ -293,7 +293,7 @@ func (o *Output) setScenario(scenario string, args []string) error {
 			return fmt.Errorf("unable to parse URL")
 		}
 
-		o.runCommand("mpv " + u.String())
+		o.runCommand("mpv --loop " + u.String())
 	} else {
 		return fmt.Errorf("scenario %v unimplemented", scenario)
 	}
