@@ -22,8 +22,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	s := server.New(machineID, "bornhack/2023/wip.bar")
-	if err := s.Run(ctx, "test.mosquitto.org:1883"); err != nil {
+	// MQTT_SERVER_URL
+	mqttServerUrl := os.Getenv("MQTT_SERVER_URL")
+	if mqttServerUrl == "" {
+		panic("MQTT_SERVER_URL must be set")
+	}
+
+	// MQTT_TOPIC_PREFIX
+	mqttTopicPrefix := os.Getenv("MQTT_TOPIC_PREFIX")
+	if mqttTopicPrefix == "" {
+		panic("MQTT_TOPIC_PREFIX must be set")
+	}
+
+	s := server.New(machineID, mqttTopicPrefix)
+	if err := s.Run(ctx, mqttServerUrl); err != nil {
 		log.WithError(err).Errorf("Server failed")
 	}
 

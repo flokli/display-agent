@@ -3,6 +3,16 @@
 Daemon useful to manage orientation, resolution and payload of one or multiple
 screens over MQTT.
 
+## Run
+Run `go run .` to build and run the project.
+
+The following environment variables need to be set:
+
+ - `MQTT_SERVER_URL` needs to point to an MQTT server (for example
+   `test.mosquitto.org:1883`)
+ - `MQTT_TOPIC_PREFIX` needs to specify a non-empty topic prefix to publish into
+   (for example `bornhack/2023/wip.bar`)
+
 ## MQTT Topics
 
 For each connected output, the server (periodically) publishes to the following
