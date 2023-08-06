@@ -37,6 +37,7 @@ func main() {
 	s := server.New(machineID, mqttTopicPrefix)
 	if err := s.Run(ctx, mqttServerUrl); err != nil {
 		log.WithError(err).Errorf("Server failed")
+		os.Exit(1)
 	}
 
 	// Listen for the interrupt signal
