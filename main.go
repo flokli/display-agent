@@ -22,14 +22,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	var s *server.Server
-
-	go func() {
-		s = server.New(machineID, "bornhack/2023/wip.bar")
-		if err := s.Run(ctx, "test.mosquitto.org:1883"); err != nil {
-			log.WithError(err).Errorf("Server failed")
-		}
-	}()
+	s := server.New(machineID, "bornhack/2023/wip.bar")
+	if err := s.Run(ctx, "test.mosquitto.org:1883"); err != nil {
+		log.WithError(err).Errorf("Server failed")
+	}
 
 	// Listen for the interrupt signal
 	<-ctx.Done()
