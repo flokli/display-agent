@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
@@ -12,6 +13,8 @@ import (
 	"github.com/flokli/display-agent/outputs"
 	"github.com/flokli/display-agent/outputs/sway"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/coreos/go-systemd/daemon"
 )
 
 type Server struct {
@@ -19,12 +22,16 @@ type Server struct {
 	TopicPrefix string
 	mqttClient  pahomqtt.Client
 	swayConn    *sway.Sway
+
+	muNumOutputs sync.Mutex
+	numOutputs   uint
 }
 
 func New(machineID string, topicPrefix string) *Server {
 	return &Server{
 		MachineID:   machineID,
 		TopicPrefix: topicPrefix,
+		numOutputs:  0,
 	}
 }
 
@@ -52,19 +59,25 @@ func (s *Server) Run(ctx context.Context, mqttServerURL string) error {
 
 	// what to do if there's a new output.
 	swayConn.RegisterOutputAdd(func(output outputs.Output) {
-		s.publishOutputData(output)
+		firstNewOutput := false
+		s.muNumOutputs.Lock()
+		// If we previously had no outputs and now have one, mark as ready.
+		if s.numOutputs == 0 {
+			firstNewOutput = true
+		}
+		s.numOutputs = s.numOutputs + 1
+		s.muNumOutputs.Unlock()
 
 		outputName := *output.GetInfo().Name
+		l := log.WithField("outputName", outputName)
 
 		// subscribe to the MQTT set topic
 		topic := s.getTopicPrefixForOutputName(outputName) + "/set"
-		l := log.WithField("topic", topic)
-		l.Debug("subscribing")
-
-		mqtt.Subscribe(s.mqttClient, topic, 0, func(c pahomqtt.Client, m pahomqtt.Message) {
+		err := mqtt.Subscribe(s.mqttClient, topic, 0, func(c pahomqtt.Client, m pahomqtt.Message) {
 			l := l.WithFields(log.Fields{
 				"message_id": m.MessageID(),
 				"payload":    m.Payload(),
+				"topic":      topic,
 			})
 			l.Debug("received message")
 
@@ -80,22 +93,52 @@ func (s *Server) Run(ctx context.Context, mqttServerURL string) error {
 			}
 
 		})
+		if err != nil {
+			l.WithField("topic", topic).WithError(err).Error("unable to subscribe to set topic")
+		}
+
+		// mark as ready if this was the first output for which we published state, info
+		// and subscribed to the set topic.
+		if firstNewOutput {
+			daemon.SdNotify(false, daemon.SdNotifyReady)
+		}
+
+		if err := s.publishOutputData(output); err != nil {
+			log.WithError(err).Warn("unable to publish output data")
+		} else {
+			daemon.SdNotify(false, "WATCHDOG=1")
+		}
 	})
 
 	swayConn.RegisterOutputUpdate(func(output outputs.Output) {
-		s.publishOutputData(output)
+		if err := s.publishOutputData(output); err != nil {
+			log.WithError(err).Warn("unable to publish output data")
+		} else {
+			daemon.SdNotify(false, "WATCHDOG=1")
+		}
 	})
 
 	// what to do if the output is removed
 	swayConn.RegisterOutputRemove(func(output outputs.Output) {
-		outputName := *output.GetInfo().Name
+		s.muNumOutputs.Lock()
+		s.numOutputs = s.numOutputs - 1
+		s.muNumOutputs.Unlock()
 
+		outputName := *output.GetInfo().Name
+		l := log.WithField("outputName", outputName)
 		// unsubscribe from the MQTT set topic
-		mqtt.Unsubscribe(s.mqttClient, []string{s.getTopicPrefixForOutputName(outputName) + "/set"})
+		err := mqtt.Unsubscribe(s.mqttClient, []string{s.getTopicPrefixForOutputName(outputName) + "/set"})
+		if err != nil {
+			l.WithError(err).Warn("unable to unsubscribe")
+		}
 
 		// publish an empty string to the topics state and info
-		mqtt.Publish(s.mqttClient, s.getTopicPrefixForOutputName(outputName)+"/state", 0, false, []byte("{}"))
-		mqtt.Publish(s.mqttClient, s.getTopicPrefixForOutputName(outputName)+"/info", 0, false, []byte("{}"))
+		if err := mqtt.Publish(s.mqttClient, s.getTopicPrefixForOutputName(outputName)+"/state", 0, false, []byte("{}")); err != nil {
+			l.WithError(err).Warn("unable to publish empty string for state")
+		}
+		if err := mqtt.Publish(s.mqttClient, s.getTopicPrefixForOutputName(outputName)+"/info", 0, false, []byte("{}")); err != nil {
+			l.WithError(err).Warn("unable to publish empty string for info")
+		}
 	})
 
 	log.Info("server.Run() finished")
